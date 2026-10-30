@@ -1,0 +1,126 @@
+{
+  "project_name": "VolailleStock - System de Gestion et Suivi de Stock de Poulets",
+  "archetype": "ORGANIC & EARTHY / TACTILE MOBILE DASHBOARD",
+  "language": "French",
+  "app_type": "Dashboard / SaaS Tool (Mobile-optimized)",
+  "color_palette": {
+    "primary": {
+      "hex": "#2C4030",
+      "name": "Deep Pine / Earthy Green",
+      "usage": "Main headers, active navigation, primary action buttons, status highlights"
+    },
+    "secondary": {
+      "hex": "#C85A32",
+      "name": "Terracotta / Warm Clay",
+      "usage": "Key alert badges, primary CTA highlights, stock depletion warnings, sales submit actions"
+    },
+    "background": {
+      "light": "#F7F5F0",
+      "card_light": "#FFFFFF",
+      "surface_muted": "#EFECE6",
+      "dark_nav": "#1C271E"
+    },
+    "accent": {
+      "sage": "#789B77",
+      "sage_light": "#E5EFE4",
+      "amber": "#D97706",
+      "amber_light": "#FEF3C7"
+    },
+    "text": {
+      "primary": "#1A231C",
+      "secondary": "#4B554D",
+      "muted": "#758277",
+      "on_dark": "#FAF8F5"
+    },
+    "borders": {
+      "light": "#E2DDD5",
+      "focus": "#2C4030"
+    }
+  },
+  "typography": {
+    "heading_font": "Cabinet Grotesk / Plus Jakarta Sans",
+    "body_font": "Inter / System Sans",
+    "mono_font": "JetBrains Mono (for raw chicken counts, e.g., 24.5 units)",
+    "scale": {
+      "h1": "text-2xl sm:text-3xl font-bold tracking-tight",
+      "h2": "text-xl sm:text-2xl font-bold tracking-tight",
+      "h3": "text-lg font-semibold",
+      "card_label": "text-xs font-semibold uppercase tracking-wider text-muted-foreground",
+      "stock_value": "text-3xl sm:text-4xl font-extrabold font-mono tracking-tight",
+      "body": "text-sm sm:text-base leading-relaxed"
+    }
+  },
+  "key_features_and_flows": [
+    {
+      "feature": "Single Admin Authentication",
+      "details": "Simple passcode/password protected view with persistent session simulation or token."
+    },
+    {
+      "feature": "Stock Atelier (Central Supply)",
+      "details": "Displays current available whole chickens in central workshop. Features 'Approvisionner l'atelier' weekly replenishment modal."
+    },
+    {
+      "feature": "Points de Vente (POS) Dashboard",
+      "details": "Card grid & list view of all sales points (e.g., 'Marché Central', 'Rotisserie Gare', 'Camion Mobile #1'). Displays current stock level in standard chicken count (decimated by halves, e.g. 18.5)."
+    },
+    {
+      "feature": "Distribution Atelier -> Point de Vente",
+      "details": "Quick wizard/modal to move whole chickens from central workshop to a selected POS."
+    },
+    {
+      "feature": "Transfert POS -> POS",
+      "details": "Inter-POS stock transfer to balance inventory dynamically between locations."
+    },
+    {
+      "feature": "Saisie des Ventes du Jour (End of Day Sales Entry)",
+      "details": "Intuitive mobile-first entry screen per POS. Input whole chickens sold + half chickens sold (e.g. 10 entiers + 3 demis = 11.5 chickens deducted). Live stock calculation preview."
+    },
+    {
+      "feature": "Gestion des Points de Vente (POS Management)",
+      "details": "Add, edit, toggle active status, set minimum alert stock threshold for each point of sale."
+    },
+    {
+      "feature": "Historique des Mouvements (Movement Log)",
+      "details": "Complete searchable ledger with filter tags: Approvisionnement, Distribution, Transfert, Vente, Réajustement."
+    }
+  ],
+  "layout_and_spacing": {
+    "navigation": "Header with warm glassmorphism backdrop-blur, brand logo 'VolailleStock', status drawer trigger, and mobile bottom bar for quick phone actions.",
+    "container": "max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6",
+    "bento_grid": "grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6",
+    "card_padding": "p-5 sm:p-6 rounded-2xl border border-[#E2DDD5] bg-white shadow-sm hover:shadow-md transition-all duration-200"
+  },
+  "components_strategy": {
+    "shadcn_components": ["dialog", "dropdown-menu", "tabs", "badge", "input", "button", "select", "sheet", "toast", "tooltip"],
+    "icons_library": "lucide-react or @phosphor-icons/react (Package: lucide-react)",
+    "mobile_optimization": "Large tactile touch targets (min 44px), half-chicken step steppers (+0.5 / -0.5), quick numpad inputs, bottom sheet drawers for sales entry on mobile."
+  },
+  "testing_attributes": {
+    "rule": "All buttons, inputs, modals, tabs, and stock counters MUST include clear data-testid attributes in kebab-case.",
+    "examples": [
+      "data-testid=\"atelier-stock-counter\"",
+      "data-testid=\"btn-supply-atelier\"",
+      "data-testid=\"btn-distribute-stock\"",
+      "data-testid=\"btn-transfer-stock\"",
+      "data-testid=\"btn-sales-entry\"",
+      "data-testid=\"input-whole-chickens-sold\"",
+      "data-testid=\"input-half-chickens-sold\"",
+      "data-testid=\"pos-card-marche-central\"",
+      "data-testid=\"tab-historique\""
+    ]
+  },
+  "image_urls": [
+    {
+      "category": "Organic Fresh Chicken Farm",
+      "url": "https://images.unsplash.com/photo-1738598666101-813d5271ae4b?crop=entropy&cs=srgb&fm=jpg&ixid=M3w4NjA1ODR8MHwxfHNlYXJjaHwyfHxyb2FzdGVyJTIwb3JnYW5pYyUyMGZhcm0lMjBmcmVzaCUyMGNoaWNrZW4lMjBkaXNwbGF5fGVufDB8fHx8MTc5MzM2OTY0Mnww&ixlib=rb-4.1.0&q=85",
+      "usage": "Header background visual / Hero illustration"
+    }
+  ],
+  "instructions_to_main_agent": [
+    "Ensure all text is in French (Atelier, Point de Vente, Demis, Entiers, Mouvements, Transférer, Distribuer, Enregistrer les ventes).",
+    "Half chicken support is critical: display values as decimal (e.g., 14.5) or integer (15), and allow inputting both whole chickens (poulets entiers) and half chickens (demi-poulets). Calculate total sold as (entiers + 0.5 * demis).",
+    "Build clean API endpoints in FastAPI with persistent database (SQLite or memory state) for POS, Atelier stock, and history logs.",
+    "Implement mobile-first responsive UX with warm organic design tone (#2C4030 primary, #C85A32 secondary, #F7F5F0 base).",
+    "Add testid attributes to all interactive elements."
+  ]
+}
