@@ -1,0 +1,49 @@
+{
+  "summary": "First full run of VolailleStock (chicken stock management, French UI). Backend: 21 pytest tests, 18 passed. The 3 failures come from 2 real bugs: the brute-force lockout does not work, and a sale with the same POS listed twice deducts stock even when the request is rejected. The third failure is a side effect of that second bug. Frontend (Playwright, desktop 1920 and mobile 390): login (wrong password shows a French error, protected route redirects to /login), create/edit/delete POS (delete refused when stock > 0), supply, distribute (refused when stock is insufficient), transfer of 2.5 between POS, sales steppers (total = whole + halves/2, refused when over stock, 'Déjà saisi ce jour' shown after saving), adjust with note, history filters (type, location, dates), cancel movement, change password (reverted to the original password and checked by logging in again), mobile bottom nav. All of these flows worked.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "POST /api/auth/login", "issue": "Brute-force lockout does not work. The key is request.client.host + email, and request.client.host is the ingress pod IP, which changes between requests (seen: 10.227.0.5 and 10.227.0.8). Failed attempts are spread over several counters, so the 6th wrong attempt still returns 401 instead of 429. Fix: key on email only, or on the first IP in X-Forwarded-For + email.", "priority": "HIGH"},
+      {"endpoint": "POST /api/sales", "issue": "Partial write. The stock check runs per item against the stock read at the start. When the same pos_id appears twice (e.g. 2 + 2 with 3 in stock), the first deduction is saved and the request then returns 400. Stock went 3 -> 1 even though the request was rejected. Fix: add up the quantity per pos_id before checking, and/or roll back the items already deducted when a later one fails.", "priority": "MEDIUM"}
+    ],
+    "minor": [
+      {"endpoint": "GET /api/overview", "issue": "sold_today is computed from UTC dates (datetime.now(timezone.utc).date()), but the Sales page sends the browser's local date. Around midnight in France the dashboard 'Vendus aujourd'hui' will not match the sales entered for that day. Supply, transfer and adjust movements are also dated in UTC. Use Europe/Paris, or have the client send the date."},
+      {"endpoint": "GET /api/overview", "issue": "The total sold_today still counts sales from deleted POS, so it no longer equals the sum of the POS cards."},
+      {"endpoint": "Error messages (take/sales)", "issue": "Quantities in error messages use Python's :g format, which gives '2.5' instead of the French '2,5'. Also '1 entiers' should be singular."},
+      {"endpoint": "DELETE /api/movements/{id}", "issue": "Cancelling a movement whose POS has been deleted adds stock back to that deleted location, where it can no longer be seen. Cancelling can also break the before/after chain of later adjustments."},
+      {"endpoint": "PosIn / SalesIn", "issue": "alert_threshold has no ge=0 check, and the sales 'date' string is not checked for a valid format."},
+      {"endpoint": "Auth (playbook)", "issue": "The app uses a Bearer token stored in localStorage, not httpOnly cookies. CORS_ORIGINS is '*' while allow_credentials=True. This works for Bearer tokens but is not what the playbook asks for (httpOnly cookies, explicit origins)."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "Sales Stepper input", "issue": "Typing '-' or other non-numeric text gives parseInt NaN, and Math.max(0, NaN) is NaN, so the totals show NaN.", "selector": "[data-testid^='input-whole-']", "priority": "LOW"}
+    ],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Ventes du jour / Historique", "issues": ["The native browser date picker is used (shows mm/dd/yyyy in a French app). Use the shadcn Calendar/Popover with the fr locale."]},
+      {"screen": "Ventes du jour (mobile 390px)", "issues": ["The sticky total bar (about 160px) plus the bottom nav cover a large part of the screen and hide the steppers of the POS rows underneath. Consider a more compact bar on mobile."]},
+      {"screen": "Header", "issues": ["Top-center toasts cover the active desktop nav pill for a moment (minor)."]}
+    ]
+  },
+  "test_report_links": ["/app/backend/tests/test_volaille_stock.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [
+    "Fix the login lockout key so it does not depend on the changing ingress IP (use email only, or X-Forwarded-For + email)",
+    "Make POST /api/sales all-or-nothing: add up quantities per pos_id before checking, and roll back on failure",
+    "Use the local (Europe/Paris) date for overview sold_today and for movement dates",
+    "Replace the native date inputs with the shadcn Calendar",
+    "Guard the Stepper against NaN input",
+    "Show decimals in error messages the French way (2,5)"
+  ],
+  "critical_code_review_comments": [
+    "server.py transfer: take() then give() is not atomic. If give fails, stock is lost. Acceptable for a single admin, but consider a Mongo transaction.",
+    "GET /api/movements is limited to 500 results with no pagination.",
+    "overview uses next(...) for the atelier: if the atelier document is missing, this raises StopIteration and returns a 500."
+  ],
+  "updated_files": ["/app/backend/tests/test_volaille_stock.py"],
+  "success_rate": {"backend": "86% (18/21; 2 real bugs)", "frontend": "100% of requested flows"},
+  "test_credentials": "grosman.benjamin@gmail.com / Poulet-f1xqDWp6 (password changed during testing, then reverted and checked)",
+  "seed_data_creation": "TEST_ POS were created and then removed. Atelier was reset to 0. Test movements, deleted TEST_ locations and test login_attempts were removed from the DB, so the DB is clean (atelier 0, no POS, no movements).",
+  "retest_needed": true,
+  "should_main_agent_self_test": true,
+  "context_for_next_testing_agent": "Run: REACT_APP_BACKEND_URL=... pytest /app/backend/tests/test_volaille_stock.py. Its fixture creates and cleans TEST_PosA/B and restores the atelier stock. test_bruteforce_lockout and test_sales_duplicate_pos_atomicity should pass once fixed. test_movements_filters_and_cancel failed only because of the partial sale."
+}

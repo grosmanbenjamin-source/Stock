@@ -10,7 +10,7 @@ const Stepper = ({ value, onChange, label, testid }) => (
     <p className="text-[11px] uppercase tracking-wider font-semibold text-[#758277] mb-1">{label}</p>
     <div className="flex items-center gap-1">
       <button type="button" onClick={() => onChange(Math.max(0, value - 1))} className="w-11 h-11 rounded-xl bg-[#EFECE6] grid place-items-center active:scale-95 transition-transform" data-testid={`${testid}-minus`}><Minus size={16} /></button>
-      <Input type="number" inputMode="numeric" min={0} value={value} onChange={(e) => onChange(Math.max(0, parseInt(e.target.value || "0", 10)))}
+      <Input type="number" inputMode="numeric" min={0} value={value} onChange={(e) => onChange(Math.max(0, parseInt(e.target.value, 10) || 0))}
         className="w-16 h-11 text-center font-num text-lg" data-testid={testid} />
       <button type="button" onClick={() => onChange(value + 1)} className="w-11 h-11 rounded-xl bg-[#EFECE6] grid place-items-center active:scale-95 transition-transform" data-testid={`${testid}-plus`}><Plus size={16} /></button>
     </div>
@@ -25,7 +25,7 @@ const SaleRow = ({ row, entry, setEntry }) => {
       <div className="min-w-[160px]">
         <p className="font-display font-bold text-lg">{row.name}</p>
         <p className="text-sm text-[#4B554D]">Stock actuel : <span className="font-num font-bold">{fmt(row.stock)}</span></p>
-        {row.total > 0 && <p className="text-sm text-[#2C4030]">Déjà saisi ce jour : <span className="font-num font-bold" data-testid={`sales-already-${row.pos_id}`}>{fmt(row.total)}</span> ({row.whole} entiers, {row.halves} demis)</p>}
+        {row.total > 0 && <p className="text-sm text-[#2C4030]">Déjà saisi ce jour : <span className="font-num font-bold" data-testid={`sales-already-${row.pos_id}`}>{fmt(row.total)}</span> ({row.whole} entier(s), {row.halves} demi(s))</p>}
       </div>
       <div className="flex flex-wrap items-end gap-4">
         <Stepper label="Entiers vendus" value={entry.whole} onChange={(v) => setEntry({ ...entry, whole: v })} testid={`input-whole-${row.pos_id}`} />

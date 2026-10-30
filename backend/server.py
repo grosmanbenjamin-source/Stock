@@ -8,6 +8,7 @@ import os
 import uuid
 import logging
 from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 from typing import Optional, List
 
 import bcrypt
@@ -27,6 +28,14 @@ logging.basicConfig(level=logging.INFO)
 
 JWT_ALGORITHM = "HS256"
 ATELIER_ID = "atelier"
+
+
+def local_today():
+    return datetime.now(ZoneInfo("Europe/Paris")).date().isoformat()
+
+
+def nf(h: int) -> str:
+    return f"{h / 2:g}".replace(".", ",")
 
 
 def now_iso():
@@ -77,7 +86,7 @@ class ChangePasswordIn(BaseModel):
 
 class PosIn(BaseModel):
     name: str = Field(min_length=1)
-    alert_threshold: float = 0
+    alert_threshold: float = Field(default=0, ge=0)
 
 
 class SupplyIn(BaseModel):
@@ -99,7 +108,7 @@ class SaleItem(BaseModel):
 
 
 class SalesIn(BaseModel):
-    date: str
+    date: str = Field(pattern=r"^\d{4}-\d{2}-\d{2}$")
     items: List[SaleItem]
 
 
@@ -134,7 +143,7 @@ async def take(loc_id: str, halves: int):
         {"id": loc_id, "stock_halves": {"$gte": halves}}, {"$inc": {"stock_halves": -halves}})
     if not res:
         loc = await get_loc(loc_id)
-        raise HTTPException(400, f"Stock insuffisant à « {loc['name']} » ({loc['stock_halves'] / 2:g} disponible)")
+        raise HTTPException(400, f"Stock insuffisant à « {loc['name']} » ({nf(loc['stock_halves'])} disponible)")
 
 
 async def give(loc_id: str, halves: int):
@@ -145,7 +154,7 @@ async def log_movement(mtype: str, halves: int, from_loc=None, to_loc=None, note
     doc = {"id": str(uuid.uuid4()), "type": mtype, "quantity_halves": halves,
            "from_id": from_loc["id"] if from_loc else None, "from_name": from_loc["name"] if from_loc else None,
            "to_id": to_loc["id"] if to_loc else None, "to_name": to_loc["name"] if to_loc else None,
-           "note": note or "", "date": date or datetime.now(timezone.utc).date().isoformat(),
+           "note": note or "", "date": date or local_today(),
            "created_at": now_iso(), **(extra or {})}
     await db.movements.insert_one(dict(doc))
     return mov_out(doc)
@@ -161,7 +170,7 @@ def mov_out(m: dict) -> dict:
 @api.post("/auth/login")
 async def login(body: LoginIn, request: Request):
     email = body.email.strip().lower()
-    ident = f"{request.client.host if request.client else 'x'}:{email}"
+    ident = email
     att = await db.login_attempts.find_one({"identifier": ident})
     if att and att.get("count", 0) >= 5 and att.get("locked_until", "") > now_iso():
         raise HTTPException(429, "Trop de tentatives. Réessayez dans 15 minutes.")
@@ -198,7 +207,7 @@ async def overview(user=Depends(current_user)):
     locs = await db.locations.find({"deleted": {"$ne": True}}, {"_id": 0}).sort("created_at", 1).to_list(500)
     atelier = next(loc_out(l) for l in locs if l["type"] == "atelier")
     pos = [loc_out(l) for l in locs if l["type"] == "pos"]
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = local_today()
     sales = await db.movements.find({"type": "sale", "date": today, "cancelled": {"$ne": True}}, {"_id": 0}).to_list(2000)
     sold = {}
     for s in sales:
@@ -207,7 +216,7 @@ async def overview(user=Depends(current_user)):
         p["sold_today"] = sold.get(p["id"], 0) / 2
     total_pos = sum(p["stock"] for p in pos)
     return {"atelier": atelier, "pos": pos, "total_pos_stock": total_pos,
-            "total_stock": total_pos + atelier["stock"], "sold_today": sum(sold.values()) / 2}
+            "total_stock": total_pos + atelier["stock"], "sold_today": sum(p["sold_today"] for p in pos)}
 
 
 @api.post("/pos")
@@ -264,21 +273,25 @@ async def record_sales(body: SalesIn, user=Depends(current_user)):
     items = [i for i in body.items if i.whole + i.halves > 0]
     if not items:
         raise HTTPException(400, "Aucune vente saisie")
-    locs = {}
+    merged = {}
     for i in items:
-        loc = await get_loc(i.pos_id)
-        need = i.whole * 2 + i.halves
+        m = merged.setdefault(i.pos_id, {"whole": 0, "halves": 0})
+        m["whole"] += i.whole
+        m["halves"] += i.halves
+    locs = {}
+    for pos_id, m in merged.items():
+        loc = await get_loc(pos_id)
+        need = m["whole"] * 2 + m["halves"]
         if loc["type"] != "pos":
             raise HTTPException(400, "Les ventes se saisissent sur un point de vente")
         if loc["stock_halves"] < need:
-            raise HTTPException(400, f"Stock insuffisant à « {loc['name']} » ({loc['stock_halves'] / 2:g} disponible, {need / 2:g} vendu)")
-        locs[i.pos_id] = loc
+            raise HTTPException(400, f"Stock insuffisant à « {loc['name']} » ({nf(loc['stock_halves'])} disponible, {nf(need)} vendu)")
+        locs[pos_id] = loc
     out = []
-    for i in items:
-        need = i.whole * 2 + i.halves
-        await take(i.pos_id, need)
-        out.append(await log_movement("sale", need, from_loc=locs[i.pos_id], date=body.date,
-                                      extra={"whole": i.whole, "halves": i.halves}))
+    for pos_id, m in merged.items():
+        need = m["whole"] * 2 + m["halves"]
+        await take(pos_id, need)
+        out.append(await log_movement("sale", need, from_loc=locs[pos_id], date=body.date, extra=m))
     return out
 
 
@@ -321,6 +334,9 @@ async def cancel_movement(mov_id: str, user=Depends(current_user)):
     if not m:
         raise HTTPException(404, "Mouvement introuvable")
     h = m["quantity_halves"]
+    for lid in (m["from_id"], m["to_id"]):
+        if lid:
+            await get_loc(lid)
     if m["to_id"]:
         await take(m["to_id"], h)
     if m["from_id"]:
